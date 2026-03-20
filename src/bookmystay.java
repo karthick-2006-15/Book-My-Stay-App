@@ -1,3 +1,4 @@
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ArrayList;
@@ -71,64 +72,91 @@ class SearchService {
  * UseCase3InventorySetup introduces centralized state management.
  * It replaces individual variables with a HashMap for better scalability.
 
+
+import java.util.LinkedList;
+import java.util.Queue;
+
+/**
+ * UseCase5BookingRequestQueue demonstrates fair request handling.
+ * It uses a Queue to ensure First-Come-First-Served (FCFS) processing.
+>>>>>>> uc5
  * * @author Developer
- * @version 3.0
+ * @version 5.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
-    private Map<String, Integer> inventory;
+// Represents a Guest's intent to book
+class Reservation {
+    private String guestName;
+    private String roomType;
 
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    /**
-     * Registers a room type with an initial count.
-     */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
+    public String getGuestName() { return guestName; }
+    public String getRoomType() { return roomType; }
 
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
-        }
-    }
-
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
-        }
+    @Override
+    public String toString() {
+        return "Reservation [Guest: " + guestName + ", Room: " + roomType + "]";
     }
 }
 
-public class UseCase3InventorySetup {
+// Manages the incoming stream of requests
+class BookingRequestQueue {
+    private Queue<Reservation> requestQueue;
+
+    public BookingRequestQueue() {
+        // LinkedList is a common implementation of the Queue interface in Java
+        this.requestQueue = new LinkedList<>();
+    }
+
+    /**
+     * Adds a new booking request to the end of the line.
+     */
+    public void enqueueRequest(Reservation reservation) {
+        requestQueue.add(reservation);
+        System.out.println("Enqueued: " + reservation.getGuestName() + " for a " + reservation.getRoomType());
+    }
+
+    /**
+     * Displays all pending requests in the order they arrived.
+     */
+    public void displayQueue() {
+        System.out.println("\n--- Current Booking Request Queue (FIFO) ---");
+        if (requestQueue.isEmpty()) {
+            System.out.println("Queue is empty.");
+        } else {
+            for (Reservation res : requestQueue) {
+                System.out.println(res);
+            }
+        }
+    }
+
+    /**
+     * Provides access to the queue for the next processing stage.
+     */
+    public Queue<Reservation> getQueue() {
+        return requestQueue;
+    }
+}
+
+public class UseCase5BookingRequestQueue {
     public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+        BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+        System.out.println("Book My Stay App v5.0 - Request Intake System");
+        System.out.println("----------------------------------------------");
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+        // Simulating guests submitting requests in a specific order
+        bookingQueue.enqueueRequest(new Reservation("Alice", "Suite"));
+        bookingQueue.enqueueRequest(new Reservation("Bob", "Single"));
+        bookingQueue.enqueueRequest(new Reservation("Charlie", "Double"));
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
+        // Showing that order is preserved
+        bookingQueue.displayQueue();
+
 
 
     private static void displayRoomStatus(Room room, int count) {
@@ -183,4 +211,8 @@ public class UseCase4RoomSearch {
 
         System.out.println("\nSearch complete. System state remains unchanged.");
     }
+=======
+        System.out.println("\nStatus: Requests captured. Awaiting allocation processing.");
+    }
+
 }
