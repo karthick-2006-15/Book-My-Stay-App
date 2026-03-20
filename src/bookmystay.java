@@ -1,69 +1,88 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
- * UseCase3InventorySetup introduces centralized state management.
- * It replaces individual variables with a HashMap for better scalability.
+ * UseCase8BookingHistoryReport demonstrates historical tracking and reporting.
+ * It uses a List to maintain a chronological audit trail of all transactions.
  * * @author Developer
- * @version 3.0
+ * @version 8.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
-    private Map<String, Integer> inventory;
+// --- Enhanced Reservation Model ---
+class Reservation {
+    private String guestName;
+    private String roomType;
+    private String roomId;
+    private double totalCost;
 
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+    public Reservation(String guestName, String roomType, String roomId, double totalCost) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+        this.roomId = roomId;
+        this.totalCost = totalCost;
     }
 
-    /**
-     * Registers a room type with an initial count.
-     */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
+    public double getTotalCost() { return totalCost; }
 
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
-        }
-    }
-
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
-        }
+    @Override
+    public String toString() {
+        return String.format("ID: %-12s | Guest: %-10s | Room: %-10s | Total: $%.2f",
+                roomId, guestName, roomType, totalCost);
     }
 }
 
-public class UseCase3InventorySetup {
+// --- Booking History & Reporting Service ---
+class BookingReportService {
+    // List preserves the order of confirmation (Chronological)
+    private List<Reservation> history;
+
+    public BookingReportService() {
+        this.history = new ArrayList<>();
+    }
+
+    /**
+     * Records a confirmed reservation into the history log.
+     */
+    public void recordBooking(Reservation res) {
+        history.add(res);
+    }
+
+    /**
+     * Generates a summary report of all activity.
+     */
+    public void generateAdminReport() {
+        System.out.println("\n======= ADMINISTRATIVE BOOKING REPORT =======");
+        if (history.isEmpty()) {
+            System.out.println("No records found.");
+            return;
+        }
+
+        double totalRevenue = 0;
+        for (Reservation res : history) {
+            System.out.println(res);
+            totalRevenue += res.getTotalCost();
+        }
+
+        System.out.println("---------------------------------------------");
+        System.out.println("Total Bookings: " + history.size());
+        System.out.printf("Total Revenue:  $%.2f\n", totalRevenue);
+        System.out.println("=============================================");
+    }
+}
+
+public class UseCase8BookingHistoryReport {
     public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+        BookingReportService reportService = new BookingReportService();
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+        System.out.println("Book My Stay App v8.0 - Reporting System");
+        System.out.println("Recording confirmed bookings...");
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+        // Simulating the recording of bookings confirmed in previous stages
+        // (Room Price + Add-on Costs aggregated)
+        reportService.recordBooking(new Reservation("Alice", "Suite", "SUITE-101", 455.00));
+        reportService.recordBooking(new Reservation("Charlie", "Single", "SINGLE-105", 115.00));
+        reportService.recordBooking(new Reservation("Eve", "Double", "DOUBLE-102", 180.00));
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
-
-        // Displaying final state
-        hotelInventory.displayInventory();
+        // Admin requests the report
+        reportService.generateAdminReport();
     }
 }
