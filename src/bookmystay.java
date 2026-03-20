@@ -1,69 +1,92 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 /**
- * UseCase3InventorySetup introduces centralized state management.
- * It replaces individual variables with a HashMap for better scalability.
+ * UseCase12DataPersistenceRecovery demonstrates durable system design.
+ * It ensures that inventory and booking history survive application restarts.
  * * @author Developer
- * @version 3.0
+ * @version 12.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
-    private Map<String, Integer> inventory;
+// --- Serializable Data Model ---
+class HotelState implements Serializable {
+    private static final long serialVersionUID = 1L;
+    public Map<String, Integer> inventory;
+    public List<String> bookingHistory;
 
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+    public HotelState(Map<String, Integer> inventory, List<String> bookingHistory) {
+        this.inventory = inventory;
+        this.bookingHistory = bookingHistory;
     }
+}
+
+class PersistenceService {
+    private static final String FILE_NAME = "hotel_data.ser";
 
     /**
-     * Registers a room type with an initial count.
+     * Serializes the current state to a physical file.
      */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
-
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
+    public void saveState(Map<String, Integer> inventory, List<String> history) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE_NAME))) {
+            HotelState state = new HotelState(inventory, history);
+            oos.writeObject(state);
+            System.out.println("SYSTEM: State persisted successfully to " + FILE_NAME);
+        } catch (IOException e) {
+            System.err.println("ERROR: Could not save state - " + e.getMessage());
         }
     }
 
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
+    /**
+     * Deserializes data from the file back into memory.
+     */
+    public HotelState loadState() {
+        File file = new File(FILE_NAME);
+        if (!file.exists()) {
+            System.out.println("SYSTEM: No previous state found. Starting fresh.");
+            return null;
+        }
+
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE_NAME))) {
+            System.out.println("SYSTEM: Restoring state from " + FILE_NAME + "...");
+            return (HotelState) ois.readObject();
+        } catch (IOException | ClassNotFoundException e) {
+            System.err.println("ERROR: Recovery failed - " + e.getMessage());
+            return null;
         }
     }
 }
 
-public class UseCase3InventorySetup {
+public class UseCase12DataPersistenceRecovery {
     public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+        PersistenceService persistence = new PersistenceService();
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+        // 1. ATTEMPT RECOVERY
+        HotelState recoveredState = persistence.loadState();
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+        Map<String, Integer> currentInventory;
+        List<String> currentHistory;
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
+        if (recoveredState != null) {
+            currentInventory = recoveredState.inventory;
+            currentHistory = recoveredState.bookingHistory;
+            System.out.println("RECOVERY SUCCESSFUL. History count: " + currentHistory.size());
+        } else {
+            // Initial setup if no file exists
+            currentInventory = new HashMap<>();
+            currentInventory.put("Suite", 5);
+            currentHistory = new ArrayList<>();
+        }
 
-        // Displaying final state
-        hotelInventory.displayInventory();
+        // 2. SIMULATE ACTIVITY
+        System.out.println("Processing new booking...");
+        String newBooking = "Booking #" + (currentHistory.size() + 1) + ": Guest Alice - Suite";
+        currentHistory.add(newBooking);
+        currentInventory.put("Suite", currentInventory.get("Suite") - 1);
+
+        // 3. PERSIST BEFORE SHUTDOWN
+        System.out.println("Shutting down system...");
+        persistence.saveState(currentInventory, currentHistory);
+
+        System.out.println("\nRun the program again to see the history count increase!");
     }
 }
