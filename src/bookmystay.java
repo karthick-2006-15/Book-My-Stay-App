@@ -1,69 +1,89 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
- * UseCase3InventorySetup introduces centralized state management.
- * It replaces individual variables with a HashMap for better scalability.
+ * UseCase11ConcurrentBookingSimulation demonstrates thread safety.
+ * It ensures that shared inventory is updated correctly by multiple threads.
  * * @author Developer
- * @version 3.0
+ * @version 11.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
-    private Map<String, Integer> inventory;
+// --- Thread-Safe Inventory Service ---
+class ConcurrentRoomInventory {
+    private Map<String, Integer> inventory = new HashMap<>();
 
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+    public void addRoomType(String type, int count) {
+        inventory.put(type, count);
     }
 
     /**
-     * Registers a room type with an initial count.
+     * The 'synchronized' keyword ensures that only one thread can
+     * execute this method at a time, preventing race conditions.
      */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
+    public synchronized boolean bookRoom(String guestName, String type) {
+        int available = inventory.getOrDefault(type, 0);
 
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
+        if (available > 0) {
+            // Simulate a slight delay to highlight potential race conditions
+            // if synchronization were missing.
+            try { Thread.sleep(10); } catch (InterruptedException e) {}
 
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
+            inventory.put(type, available - 1);
+            System.out.println("[SUCCESS] " + guestName + " booked a " + type + ". Remaining: " + (available - 1));
+            return true;
+        } else {
+            System.out.println("[FAILED] " + guestName + " could not book " + type + ". Sold out!");
+            return false;
         }
     }
 
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
-        }
+    public int getFinalCount(String type) {
+        return inventory.getOrDefault(type, 0);
     }
 }
 
-public class UseCase3InventorySetup {
-    public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+// --- Booking Task (Simulates a Guest) ---
+class BookingTask implements Runnable {
+    private ConcurrentRoomInventory inventory;
+    private String guestName;
+    private String roomType;
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+    public BookingTask(ConcurrentRoomInventory inventory, String guestName, String roomType) {
+        this.inventory = inventory;
+        this.guestName = guestName;
+        this.roomType = roomType;
+    }
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+    @Override
+    public void run() {
+        inventory.bookRoom(guestName, roomType);
+    }
+}
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
+public class UseCase11ConcurrentBookingSimulation {
+    public static void main(String[] args) throws InterruptedException {
+        ConcurrentRoomInventory hotelInventory = new ConcurrentRoomInventory();
 
-        // Displaying final state
-        hotelInventory.displayInventory();
+        // Only 2 Luxury Suites available
+        hotelInventory.addRoomType("Luxury Suite", 2);
+
+        System.out.println("Book My Stay App v11.0 - Concurrent Simulation");
+        System.out.println("Initial Luxury Suites: 2");
+        System.out.println("Simulating 5 simultaneous booking requests...\n");
+
+        // Creating 5 guest threads competing for 2 rooms
+        Thread t1 = new Thread(new BookingTask(hotelInventory, "Alice", "Luxury Suite"));
+        Thread t2 = new Thread(new BookingTask(hotelInventory, "Bob", "Luxury Suite"));
+        Thread t3 = new Thread(new BookingTask(hotelInventory, "Charlie", "Luxury Suite"));
+        Thread t4 = new Thread(new BookingTask(hotelInventory, "David", "Luxury Suite"));
+        Thread t5 = new Thread(new BookingTask(hotelInventory, "Eve", "Luxury Suite"));
+
+        // Start all threads simultaneously
+        t1.start(); t2.start(); t3.start(); t4.start(); t5.start();
+
+        // Wait for all threads to finish
+        t1.join(); t2.join(); t3.join(); t4.join(); t5.join();
+
+        System.out.println("\nSimulation Finished.");
+        System.out.println("Final Inventory for Luxury Suite: " + hotelInventory.getFinalCount("Luxury Suite"));
     }
 }
