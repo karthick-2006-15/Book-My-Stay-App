@@ -1,69 +1,77 @@
-import java.util.HashMap;
-import java.util.Map;
-
 /**
- * UseCase3InventorySetup introduces centralized state management.
- * It replaces individual variables with a HashMap for better scalability.
+ * UseCase9Validation demonstrates robust error handling.
+ * It uses Custom Exceptions to prevent invalid system states.
  * * @author Developer
- * @version 3.0
+ * @version 9.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
-    private Map<String, Integer> inventory;
-
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+// Custom Exception for Domain-Specific Errors
+class BookingException extends Exception {
+    public BookingException(String message) {
+        super(message);
     }
+}
 
+class BookingValidator {
     /**
-     * Registers a room type with an initial count.
+     * Validates if a booking can proceed based on input and inventory.
+     * Throws an exception if any rule is violated (Fail-Fast).
      */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
+    public static void validateRequest(String roomType, int currentCount, java.util.Set<String> validTypes)
+            throws BookingException {
 
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
+        // 1. Validate Input: Does the room type even exist?
+        if (!validTypes.contains(roomType)) {
+            throw new BookingException("Invalid Room Type: '" + roomType + "' is not offered by this hotel.");
         }
-    }
 
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
+        // 2. Validate State: Is there enough inventory?
+        if (currentCount <= 0) {
+            throw new BookingException("Sold Out: No '" + roomType + "' units available for booking.");
         }
     }
 }
 
-public class UseCase3InventorySetup {
+public class UseCase9Validation {
     public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+        // Setup initial state
+        java.util.Map<String, Integer> inventory = new java.util.HashMap<>();
+        inventory.put("Suite", 1);
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+        java.util.Set<String> validRoomTypes = new java.util.HashSet<>();
+        validRoomTypes.add("Suite");
+        validRoomTypes.add("Single");
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+        System.out.println("Book My Stay App v9.0 - Validation & Error Handling");
+        System.out.println("---------------------------------------------------");
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
+        // Test Scenario 1: Invalid Room Type
+        processTestBooking("Penthouse", inventory, validRoomTypes);
 
-        // Displaying final state
-        hotelInventory.displayInventory();
+        // Test Scenario 2: Valid Room Type, but Sold Out
+        processTestBooking("Single", inventory, validRoomTypes);
+
+        // Test Scenario 3: Valid Request
+        processTestBooking("Suite", inventory, validRoomTypes);
+    }
+
+    private static void processTestBooking(String type, java.util.Map<String, Integer> inv, java.util.Set<String> validTypes) {
+        try {
+            System.out.println("Attempting to book: " + type);
+            int currentCount = inv.getOrDefault(type, 0);
+
+            // The Gatekeeper: Validation
+            BookingValidator.validateRequest(type, currentCount, validTypes);
+
+            // If we reach here, validation passed
+            inv.put(type, currentCount - 1);
+            System.out.println("SUCCESS: Room allocated successfully.");
+
+        } catch (BookingException e) {
+            // Graceful failure handling
+            System.err.println("ERROR: " + e.getMessage());
+        } finally {
+            System.out.println("Status: Validation check complete.\n");
+        }
     }
 }
