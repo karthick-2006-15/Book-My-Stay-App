@@ -1,69 +1,81 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
- * UseCase3InventorySetup introduces centralized state management.
- * It replaces individual variables with a HashMap for better scalability.
+ * UseCase10BookingCancellation handles the reversal of system state.
+ * It uses a Stack to manage room ID rollbacks and updates the inventory.
  * * @author Developer
- * @version 3.0
+ * @version 10.0
  */
 
-class RoomInventory {
-    // Encapsulated HashMap: Key = Room Type, Value = Available Count
+class CancellationService {
     private Map<String, Integer> inventory;
+    private Set<String> allocatedRoomIds;
+    private Stack<String> cancellationHistory; // Tracks IDs for potential undo/audit
 
-    public RoomInventory() {
-        this.inventory = new HashMap<>();
+    public CancellationService(Map<String, Integer> inventory, Set<String> allocatedRoomIds) {
+        this.inventory = inventory;
+        this.allocatedRoomIds = allocatedRoomIds;
+        this.cancellationHistory = new Stack<>();
     }
 
     /**
-     * Registers a room type with an initial count.
+     * Reverses a booking by restoring inventory and releasing the Room ID.
      */
-    public void addRoomType(String roomType, int count) {
-        inventory.put(roomType, count);
-    }
+    public void cancelBooking(String roomId, String roomType) throws Exception {
+        System.out.println("Initiating cancellation for: " + roomId);
 
-    /**
-     * Retrieves the current availability for a specific room type.
-     */
-    public int getAvailability(String roomType) {
-        return inventory.getOrDefault(roomType, 0);
-    }
-
-    /**
-     * Updates availability (e.g., after a booking or cancellation).
-     */
-    public void updateAvailability(String roomType, int change) {
-        if (inventory.containsKey(roomType)) {
-            int current = inventory.get(roomType);
-            inventory.put(roomType, current + change);
+        // 1. Validation: Does this room ID actually exist in our allocated set?
+        if (!allocatedRoomIds.contains(roomId)) {
+            throw new Exception("Cancellation Failed: Room ID " + roomId + " not found or already cancelled.");
         }
+
+        // 2. State Reversal: Remove from Allocated Set
+        allocatedRoomIds.remove(roomId);
+
+        // 3. Inventory Restoration: Increment the count
+        int currentCount = inventory.getOrDefault(roomType, 0);
+        inventory.put(roomType, currentCount + 1);
+
+        // 4. LIFO Tracking: Push to cancellation stack
+        cancellationHistory.push(roomId);
+
+        System.out.println("SUCCESS: " + roomId + " released. " + roomType + " inventory restored.");
     }
 
-    public void displayInventory() {
-        System.out.println("--- Current Room Inventory ---");
-        for (Map.Entry<String, Integer> entry : inventory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue() + " available");
-        }
+    public void displayStatus(String roomType) {
+        System.out.println("Current " + roomType + " Inventory: " + inventory.get(roomType));
     }
 }
 
-public class UseCase3InventorySetup {
+public class UseCase10BookingCancellation {
     public static void main(String[] args) {
-        RoomInventory hotelInventory = new RoomInventory();
+        // Initializing state from previous use cases
+        Map<String, Integer> hotelInventory = new HashMap<>();
+        hotelInventory.put("Suite", 0); // Assume all suites were booked
 
-        // Registering rooms into the centralized Map
-        hotelInventory.addRoomType("Single Room", 10);
-        hotelInventory.addRoomType("Double Room", 5);
-        hotelInventory.addRoomType("Suite Room", 2);
+        Set<String> activeAllocations = new HashSet<>();
+        activeAllocations.add("SUITE-101");
+        activeAllocations.add("SUITE-102");
 
-        System.out.println("Hotel Booking System v3.0 - Inventory Initialized.");
+        CancellationService service = new CancellationService(hotelInventory, activeAllocations);
 
-        // Simulating a booking (reducing count by 1)
-        System.out.println("\nBooking one Double Room...");
-        hotelInventory.updateAvailability("Double Room", -1);
+        System.out.println("Book My Stay App v10.0 - Cancellation & Rollback");
+        System.out.println("-------------------------------------------------");
+        service.displayStatus("Suite");
 
-        // Displaying final state
-        hotelInventory.displayInventory();
+        try {
+            // Valid Cancellation
+            service.cancelBooking("SUITE-101", "Suite");
+            service.displayStatus("Suite");
+
+            // Attempting to cancel the same ID again (Should Fail)
+            System.out.println("\nAttempting duplicate cancellation...");
+            service.cancelBooking("SUITE-101", "Suite");
+
+        } catch (Exception e) {
+            System.err.println("ERROR: " + e.getMessage());
+        }
+
+        System.out.println("\nSystem state remains consistent after rollback.");
     }
 }
